@@ -1,0 +1,46 @@
+#ifndef __MY_USART_H__  // <--- 把这里改成独一无二的名字
+#define __MY_USART_H__  // <--- 把这里也跟着改
+
+#include "main.h" // 必须包含main.h以获取HAL库的定义和uintX_t类型
+
+// --- 定义一个结构体来保存解析后的指令数据 ---
+// 这样做比传递零散的变量更清晰、更安全
+typedef struct {
+    uint8_t  cmd_type;  // 命令类型
+    uint8_t  channel;   // 通道号
+    uint8_t  wave_type; // 波形类型
+    uint16_t frequency; // 频率
+    uint16_t phase;     // 相位
+} CommandData_t;
+
+
+// --- 公共函数声明 ---
+
+/**
+ * @brief 初始化UART模块，主要是启动对PC的串口中断接收
+ */
+void UART_Init(void);
+
+/**
+ * @brief 检查是否接收到一帧完整的指令
+ * @retval 1: 有新指令, 0: 没有新指令
+ */
+uint8_t Is_Command_Ready(void);
+
+/**
+ * @brief 获取已接收到的完整指令数据
+ * @param cmd_data: 一个指向 CommandData_t 结构体的指针，用于存放解析出的数据
+ */
+void Get_Received_Command(CommandData_t* cmd_data);
+
+/**
+ * @brief 将波形参数打包并通过USART1发送给FPGA
+ * @param channel:   目标DAC通道
+ * @param wave_type: 波形类型
+ * @param frequency: 波形频率
+ * @param phase:     波形相位
+ */
+void Send_Waveform_Command_To_FPGA(uint8_t channel, uint8_t wave_type, uint16_t frequency, uint16_t phase);
+
+
+#endif /* __USART_H__ */
