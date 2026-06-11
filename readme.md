@@ -10,7 +10,7 @@ This repository contains the design and implementation of a heterogeneous signal
 
 The system adopts a Hardware-Software Co-design architecture:
 * **The FPGA (Data Plane)** acts as a deterministic hardware accelerator, handling DDS signal synthesis, ADC sampling synchronization, and real-time DSP (LUT-based magnitude/phase extraction).
-* **The STM32 (Control Plane)** manages the system-level state machine, Human-Machine Interface (HMI) parsing, and executes advanced software-level pre-distortion algorithms to compensate for the analog front-end frequency response.
+* **The STM32 (Control Plane)** manages the system-level state machine, parses Human-Machine Interface (HMI) commands, and executes software-level gain equalization to compensate for the analog front-end frequency response.
 
 ---
 
@@ -58,5 +58,5 @@ The current RTL data-path has explicit room for synthesizability and precision o
     └── Core/software/           # Application Logic
         ├── app.c                # 5-Stage Central Core FSM
         ├── lut_cal.c            # AFE Gain Compensation (LUT + Interpolation)
-        ├── bsp_fpga_control.c   # Float-to-Fixed Point Conversion & Framing
+        ├── bsp_fpga_control.c   # Frame Packaging & FPGA Communication Interface
         └── bsp_hmi.c            # HMI Serial Communication Parser
