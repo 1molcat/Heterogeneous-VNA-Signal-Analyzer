@@ -1,58 +1,58 @@
-# Heterogeneous FPGA-ARM Vector Network Analyzer & Automated Filter Characterization System
+# Heterogeneous FPGA-ARM Vector Network Analyzer & Filter Characterization System
 
 ![Verilog](https://img.shields.io/badge/Language-Verilog_HDL-blue.svg)
 ![C/C++](https://img.shields.io/badge/Language-C%2FC%2B%2B-green.svg)
 ![Platform](https://img.shields.io/badge/Platform-Altera_Cyclone_IV_%7C_STM32_Cortex--M-orange.svg)
-![Status](https://img.shields.io/badge/Status-Validated_&_Tested-brightgreen.svg)
+![Status](https://img.shields.io/badge/Status-Functional_Prototype-brightgreen.svg)
 
 ## 📌 Project Overview
-This repository contains the complete design and implementation files for an industrial-grade, heterogeneous co-processing system combining an **Altera Cyclone IV FPGA** and an **ARM Cortex-M Microcontroller**. Together, they form a highly integrated **Vector Network Analyzer (VNA) and Automated Filter Characterization System**. 
+This repository contains the design and implementation of a heterogeneous co-processing system combining an **Altera Cyclone IV FPGA** and an **ARM Cortex-M Microcontroller**. Together, they form a highly integrated **Vector Network Analyzer (VNA) and Automated Filter Characterization System Prototype**. 
 
-The system leverages the deterministic hardware parallelism of the FPGA to execute high-speed digital signal processing (DSP) and sampling routines, while the ARM processor coordinates the runtime state machine, handles human-machine interfaces (HMI), and executes software-level calibration to linearize analog front-end (AFE) frequency responses.
+The system utilizes a Hardware-Software Co-design approach: the FPGA acts as the deterministic hardware accelerator for high-speed digital signal processing (DSP) and raw data acquisition, while the STM32 coordinates the runtime state machine, handles human-machine interfaces (HMI), and executes software-level calibration to linearize analog front-end (AFE) frequency responses.
 
 ---
 
 ## ⚙️ Key Technical Highlights & Architecture
 
-### 1. FPGA Gateware Core (High-Speed DSP Pipeline)
-* **Multiplier-less Coherent Demodulation:** Implements a highly optimized IQ demodulator using the phase accumulator's quadrant-overflow properties to perform synchronous sampling without draining hardware multipliers, ensuring zero phase-lag and low resource usage.
-* **8-Stage Pipelined Coordinate Transformation:** Features a fully pipelined Rectangular-to-Polar converter (`coord_transform.v`) backed by combinational LUTs, resolving full 4-quadrant `atan2` phase corrections natively in hardware.
-* **Deterministic Boundary-Based Filter Analyzer:** Embedded with a hardware heuristic state machine (`filter_analyzer.v`) that analyzes real-time DC vs. HF magnitude roll-offs to instantly classify unknown filters (LPF, HPF, BPF, BRF) and transmits results via deterministic frame bursts.
-* **Hand-Coded Phase Accumulators:** Features a resource-efficient Triangle Wave Engine built via phase folding bit-manipulation running close to the raw silicone $F_{max}$.
-* **Glitch-Resilient Communication:** Implements a custom UART receiver backed by **16x oversampling clock-ticks** and 3-stage cross-clock domain (CDC) sync registers to reject industrial environment electromagnetic interference.
+### 1. FPGA Gateware Core (High-Speed Data Plane)
+* **Coherent Sweeping & IQ Demodulation:** Implements synchronous digital down-conversion. Extracts weak signals by performing coherent averaging over 64 cycles after a dedicated stabilization period at each frequency step, significantly improving the SNR.
+* **LUT-based DSP Accelerator Prototype:** Explores a trade-off architecture (`coord_transform.v`) that sacrifices block RAM resources for low latency. Uses ROM lookup tables (`.mif` initialized) to compute magnitudes ($\sqrt{I^2+Q^2}$) and features a hardware-level 4-quadrant `atan2` logic for precise phase extraction.
+* **Hardware Filter Classifier:** Features a hardware heuristic state machine (`filter_analyzer.v`) that analyzes magnitude roll-offs across frequency sweeps to automatically classify unknown filters (LPF, HPF, BPF, BRF).
+* **High-Robustness UART Link:** Implements a custom UART receiver (`uart_rx.v`) backed by **16x oversampling clock-ticks** with center-aligned sampling, ensuring zero-error asynchronous communication with the STM32.
 
-### 2. STM32 Firmware Core (Layered Architecture & Calibration)
-* **Layered Software Framework:** Decouples core logic beautifully into Application (`app.c`), Board Support Packages (`bsp_fpga_control.c`, `bsp_hmi.c`), and low-level peripheral drivers (`my_usart.c`) to promote industrial maintainability.
-* **AFE Non-linear Linearization Algorithm:** Employs a custom lookup table combined with a real-time linear interpolation engine (`lut_cal.c`) to mathematically offset and compensate for high-frequency attenuation caused by the Analog Front End across 100Hz to 6000Hz.
-* **Robust Packet Framing:** Drives the FPGA using 47-byte strict binary frames while processing asynchronous ASCII command streams from the user control screen concurrently using efficient tokenization and data type conversions.
+### 2. STM32 Firmware Core (Control Plane & Calibration)
+* **Layered Software Framework:** Decouples core logic into Application State Machine (`app.c`), Board Support Packages (`bsp_fpga_control.c`, `bsp_hmi.c`), and DMA-backed peripheral drivers, promoting firmware maintainability.
+* **AFE Non-linear Linearization (Pre-distortion):** Develops a custom lookup table combined with a real-time linear interpolation engine (`lut_cal.c`). It mathematically offsets and compensates for the high-frequency attenuation caused by the Analog Front End across the 100Hz to 6000Hz spectrum, ensuring flat stimulus amplitude.
+* **Asynchronous Packet Framing:** Drives the FPGA using dense 47-byte binary frames while concurrently processing asynchronous ASCII commands from the HMI screen via **UART IDLE Interrupts + DMA double-buffering**, achieving non-blocking data parsing.
+
+---
+
+## 🚧 Known Limitations & Optimization Roadmap
+As an undergraduate prototype, the system successfully validates the heterogeneous architecture, but the RTL data-path currently has room for synthesizability and timing optimizations. My future work includes:
+1. **True Hardware Pipelining:** Replacing behavioral simulation constructs (e.g., `$past` used for delay matching) with explicit shift-register chains to ensure strict RTL synthesizability and higher $F_{max}$.
+2. **IP Core Integration:** Replacing the behavioral division placeholder in the DSP path with a pipelined `LPM_DIVIDE` vendor IP.
+3. **Small-Signal Precision:** Introducing a Leading Zero Detector (LZD) prior to LUT addressing to implement dynamic block-floating-point scaling, addressing the truncation quantization noise for small inputs.
 
 ---
 
 ## 📂 Repository Structure
 ```text
 ├── FPGA_Gateware/               # FPGA Logic Design (Quartus II)
-│   ├── usart2FPGA.qpf           # Quartus Project File
-│   ├── usart2FPGA.qsf           # Project Settings and Pin Assignments
 │   ├── src/                     # RTL Verilog Source Code
-│   │   ├── top.v                # Top-Level Infrastructure & DSP Multistage Pipeline
-│   │   ├── filter_analyzer.v    # Filter Classification FSM Engine
-│   │   ├── coord_transform.v    # 8-Stage CORDIC-less Coordinate Converter
-│   │   ├── triangle_wave_generator.v # High-Speed Phase-Folding Triangle Generator
-│   │   ├── command_parser.v     # 12-byte Custom Packet Bus Flattener
-│   │   └── uart_rx.v / uart_tx.v# 16x Oversampling Robust UART Transceivers
+│   │   ├── top.v                # Top-Level Integration & FSM
+│   │   ├── filter_analyzer.v    # Filter Classification Engine
+│   │   ├── coord_transform.v    # LUT-based Coordinate Converter Prototype
+│   │   ├── triangle_wave_generator.v # Phase-Accumulator based Generator
+│   │   ├── command_parser.v     # 47-byte Custom Packet Bus Flattener
+│   │   └── uart_rx.v / uart_tx.v# 16x Oversampling UART Transceivers
 │   ├── constraints/             
-│   │   └── tim.sdc              # Synopsis Design Constraints (50MHz Clock Driving)
-│   └── sim/                     
-│       └── tb_top.v             # Automated UART Instruction Packet Injector Testbench
+│   │   └── tim.sdc              # Synopsis Design Constraints
+│   └── sim/                     # MATLAB & Verilog Simulation Models
 │
-└── STM32_Firmware/              # Microcontroller Source Code (Keil MDK)
-    ├── usart2FPGA.uvprojx       # Keil uVision Project File
-    ├── usart2FPGA.ioc           # STM32CubeMX Initialization Configuration
-    ├── App/                     # Application State Machine & DSP Calibration
-    │   ├── app.c                # Central Core FSM Handler
-    │   └── lut_cal.c            # Software Analog Gain Compensation Lookup & Interpolation
-    ├── BSP/                     # Board Support Packages (Hardware Abstraction Layers)
-    │   ├── bsp_fpga_control.c   # 47-byte Command Packaging & Transmission Interface
-    │   └── bsp_hmi.c            # Touch Screen Interface Serial Communication Driver
-    └── Drivers/                 
-        └── my_usart.c           # Interrupt-driven String Parsing & Frame Isolation
+└── STM32_Firmware/              # Microcontroller Source Code
+    ├── Core/Src/                # STM32 HAL & Low-level Drivers (DMA, UART)
+    └── Core/software/           # Application Logic
+        ├── app.c                # 5-Stage Central Core FSM
+        ├── lut_cal.c            # Software Analog Gain Compensation (Interpolation)
+        ├── bsp_fpga_control.c   # Float-to-Fixed Point Conversion & Framing
+        └── bsp_hmi.c            # HMI Serial Communication Parser
