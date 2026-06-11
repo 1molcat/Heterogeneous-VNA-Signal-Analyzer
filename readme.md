@@ -1,4 +1,4 @@
-# Heterogeneous FPGA-ARM Vector Network Analyzer & Filter Characterization System
+# Heterogeneous FPGA-ARM Signal Analyzer & Filter Characterization Prototype
 
 ![Verilog](https://img.shields.io/badge/Language-Verilog_HDL-blue.svg)
 ![C/C++](https://img.shields.io/badge/Language-C%2FC%2B%2B-green.svg)
